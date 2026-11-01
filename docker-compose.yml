@@ -1,0 +1,73 @@
+# Local stack: TimescaleDB (PostgreSQL) + Redis + API.
+#   docker compose up -d --build
+# Tool containers (no local Go / Flutter install needed):
+#   docker compose run --rm go go test ./...
+#   docker compose run --rm api worker backfill -years 5
+#   docker compose run --rm flutter flutter analyze
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg17
+    environment:
+      POSTGRES_USER: copium
+      POSTGRES_PASSWORD: copium
+      POSTGRES_DB: copium
+      TZ: Asia/Taipei
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U copium -d copium"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./api
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgres://copium:copium@postgres:5432/copium?sslmode=disable
+      REDIS_ADDR: redis:6379
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  go:
+    image: golang:1.26-alpine
+    working_dir: /src
+    volumes:
+      - ./api:/src
+      - gomod:/go/pkg/mod
+      - gocache:/root/.cache/go-build
+    profiles: ["tools"]
+
+  flutter:
+    image: ghcr.io/cirruslabs/flutter:stable
+    working_dir: /app
+    volumes:
+      - ./app:/app
+      - pubcache:/root/.pub-cache
+    profiles: ["tools"]
+
+volumes:
+  pgdata:
+  gomod:
+  gocache:
+  pubcache:
