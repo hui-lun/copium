@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"copium/api/internal/ai"
 	"copium/api/internal/backtest"
 	"copium/api/internal/market"
 	"copium/api/internal/store"
@@ -15,6 +16,7 @@ type Deps struct {
 	Market    *market.Service
 	Store     *store.Store
 	Backtests *backtest.Manager
+	AI        *ai.Client
 }
 
 type handlers struct{ Deps }
@@ -44,6 +46,9 @@ func NewRouter(d Deps) *gin.Engine {
 		v1.POST("/backtests", h.createBacktest)
 		v1.GET("/backtests", h.listBacktests)
 		v1.GET("/backtests/:id", h.getBacktest)
+
+		// AI chat (Gemini, proxied so the API key never reaches the app).
+		v1.POST("/chat", h.chat)
 
 		// Personal data (requires a user).
 		auth := v1.Group("", requireUser())

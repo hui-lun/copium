@@ -7,6 +7,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../shared/widgets.dart';
+import '../chat/chat_sheet.dart';
 
 /// "Today's needles": stocks matched by the daily screens.
 class ScreenerPage extends ConsumerStatefulWidget {
@@ -27,19 +28,28 @@ class _ScreenerPageState extends ConsumerState<ScreenerPage> {
   @override
   Widget build(BuildContext context) {
     final hits = ref.watch(screensProvider);
-    return SafeArea(
-      bottom: false,
-      child: Column(
-        children: [
-          const PageHeader(eyebrow: '韭菜農場', title: '今日撈到的針'),
-          Expanded(
-            child: AsyncBody(
-              value: hits,
-              onRetry: () => ref.invalidate(screensProvider),
-              builder: (all) => RefreshIndicator(onRefresh: _refresh, child: _list(all)),
+    return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        tooltip: '問 AI',
+        onPressed: () => showChatSheet(context),
+        backgroundColor: AppColors.accent,
+        foregroundColor: AppColors.onAccent,
+        child: const Icon(Icons.chat_bubble_outline),
+      ),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const PageHeader(eyebrow: '韭菜農場', title: '今日撈到的針'),
+            Expanded(
+              child: AsyncBody(
+                value: hits,
+                onRetry: () => ref.invalidate(screensProvider),
+                builder: (all) => RefreshIndicator(onRefresh: _refresh, child: _list(all)),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -76,6 +86,7 @@ class _ScreenerPageState extends ConsumerState<ScreenerPage> {
           for (final h in shown) _HitTile(hit: h, showStrategy: strategies.length > 1),
         ],
         const Disclaimer(),
+        const SizedBox(height: 72), // keep the last row clear of the chat button
       ],
     );
   }

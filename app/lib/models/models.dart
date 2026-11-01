@@ -264,6 +264,21 @@ class Bucket {
   factory Bucket.fromJson(Map<String, dynamic> j) => Bucket(label: _s(j['label']), count: _i(j['count']));
 }
 
+// ---------- AI chat ----------
+
+class ChatMessage {
+  const ChatMessage({required this.role, required this.text});
+
+  /// "user" or "model" are sent to the API; "error" is local-only.
+  final String role;
+  final String text;
+
+  bool get isUser => role == 'user';
+  bool get isError => role == 'error';
+
+  Map<String, dynamic> toJson() => {'role': role, 'text': text};
+}
+
 // ---------- personal data ----------
 
 class WatchItem {

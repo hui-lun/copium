@@ -68,6 +68,19 @@ class ApiClient {
   Future<BacktestStatus> backtest(int id) async =>
       BacktestStatus.fromJson(await _get('/backtests/$id') as Map<String, dynamic>);
 
+  // AI chat: sends the conversation, returns the model's reply.
+  Future<String> chat(List<ChatMessage> messages) async {
+    final data = await _send(() => _dio.post(
+          '/chat',
+          data: {
+            'messages': [for (final m in messages) if (!m.isError) m.toJson()],
+          },
+          // Gemini can take well over a minute under load.
+          options: Options(receiveTimeout: const Duration(seconds: 100)),
+        ));
+    return (data as Map)['reply'] as String;
+  }
+
   // Personal data
   Future<List<WatchItem>> watchlist() async => _list(await _get('/watchlist'), WatchItem.fromJson);
 

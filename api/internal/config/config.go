@@ -26,6 +26,10 @@ type Config struct {
 
 	// FinMindToken is optional; reserved for filling data gaps via FinMind.
 	FinMindToken string
+
+	// GeminiAPIKey enables the AI chat; empty disables it.
+	GeminiAPIKey string
+	GeminiModel  string
 }
 
 func Load() Config {
@@ -40,6 +44,8 @@ func Load() Config {
 		EveningIngestAt:      getenv("EVENING_INGEST_AT", "20:00"),
 		WebRequestInterval:   duration("WEB_REQUEST_INTERVAL", 3*time.Second),
 		FinMindToken:         getenv("FINMIND_TOKEN", ""),
+		GeminiAPIKey:         getenv("GEMINI_API_KEY", ""),
+		GeminiModel:          getenv("GEMINI_MODEL", "gemini-3.8-flash,gemini-flash-latest"),
 	}
 }
 

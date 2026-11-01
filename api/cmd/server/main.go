@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"copium/api/internal/ai"
 	"copium/api/internal/api"
 	"copium/api/internal/backtest"
 	"copium/api/internal/config"
@@ -40,12 +41,16 @@ func main() {
 	mkt := market.NewService(twse, tpex, cache, st, cfg.Location())
 	ingestor := jobs.NewIngestor(st, twse, tpex, cfg.Location())
 	backtests := backtest.NewManager(st, st.LoadDataset)
+	gemini := ai.NewGemini(cfg.GeminiAPIKey, cfg.GeminiModel)
+	if !gemini.Enabled() {
+		log.Println("GEMINI_API_KEY not set: AI chat disabled")
+	}
 
 	go jobs.NewScheduler(cfg, mkt, ingestor).Run(ctx)
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           api.NewRouter(api.Deps{Market: mkt, Store: st, Backtests: backtests}),
+		Handler:           api.NewRouter(api.Deps{Market: mkt, Store: st, Backtests: backtests, AI: gemini}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	go func() {
