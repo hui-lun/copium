@@ -49,6 +49,19 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Flutter web build served at http://localhost:3000
+  # Rebuild after app changes:
+  #   docker compose run --rm flutter flutter build web --dart-define=API_BASE_URL=http://localhost:8080
+  web:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./app/build/web:/usr/share/nginx/html:ro
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
   go:
     image: golang:1.26-alpine
     working_dir: /src
