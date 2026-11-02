@@ -52,7 +52,7 @@ func (s *TWSESource) DailyQuotes(ctx context.Context, fallbackDate time.Time) ([
 			Change: parseFloat(r.Change), Volume: parseInt(r.TradeVolume), Value: parseInt(r.TradeValue),
 		})
 	}
-	return quotes, nil
+	return filterStocks(quotes), nil
 }
 
 // DailyQuotesOn returns all listed securities' quotes for a past trading day
@@ -82,16 +82,24 @@ func (s *TWSESource) DailyQuotesOn(ctx context.Context, date time.Time) ([]Quote
 		}
 		iName, iVol, iVal := t.col("證券名稱"), t.col("成交股數"), t.col("成交金額")
 		iOpen, iHigh, iLow := t.col("開盤價"), t.col("最高價"), t.col("最低價")
+		// The sign lives in its own column as HTML, e.g. <p style= color:red>+</p>.
+		iSign, iDiff := t.col("漲跌(+/-)"), t.col("漲跌價差")
 		quotes := make([]Quote, 0, len(t.Data))
 		for _, row := range t.Data {
+			change := parseFloat(cell(row, iDiff))
+			if strings.Contains(cell(row, iSign), "-") {
+				change = -change
+			} else if !strings.Contains(cell(row, iSign), "+") {
+				change = 0
+			}
 			quotes = append(quotes, Quote{
 				Code: cell(row, iCode), Name: cell(row, iName), Exchange: TWSE, Date: date,
 				Open: parseFloat(cell(row, iOpen)), High: parseFloat(cell(row, iHigh)),
-				Low: parseFloat(cell(row, iLow)), Close: parseFloat(cell(row, iClose)),
+				Low: parseFloat(cell(row, iLow)), Close: parseFloat(cell(row, iClose)), Change: change,
 				Volume: parseInt(cell(row, iVol)), Value: parseInt(cell(row, iVal)),
 			})
 		}
-		return quotes, nil
+		return filterStocks(quotes), nil
 	}
 	return nil, nil // holiday or no data
 }

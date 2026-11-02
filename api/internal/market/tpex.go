@@ -49,7 +49,7 @@ func (s *TPExSource) DailyQuotes(ctx context.Context, fallbackDate time.Time) ([
 			Change: parseFloat(r.Change), Volume: parseInt(r.TradingShares), Value: parseInt(r.TransactionAmount),
 		})
 	}
-	return quotes, nil
+	return filterStocks(quotes), nil // this feed also lists warrants and ETNs
 }
 
 // DailyQuotesOn returns all OTC securities' quotes for a past trading day.
@@ -70,16 +70,18 @@ func (s *TPExSource) DailyQuotesOn(ctx context.Context, date time.Time) ([]Quote
 		}
 		iName, iVol, iVal := t.col("名稱"), t.col("成交股數"), t.col("成交金額")
 		iOpen, iHigh, iLow := t.col("開盤"), t.col("最高"), t.col("最低")
+		iChange := t.col("漲跌") // signed, e.g. "+0.50" / "-1.20"
 		quotes := make([]Quote, 0, len(t.Data))
 		for _, row := range t.Data {
 			quotes = append(quotes, Quote{
 				Code: cell(row, iCode), Name: cell(row, iName), Exchange: TPEx, Date: date,
 				Open: parseFloat(cell(row, iOpen)), High: parseFloat(cell(row, iHigh)),
 				Low: parseFloat(cell(row, iLow)), Close: parseFloat(cell(row, iClose)),
+				Change: parseFloat(cell(row, iChange)),
 				Volume: parseInt(cell(row, iVol)), Value: parseInt(cell(row, iVal)),
 			})
 		}
-		return quotes, nil
+		return filterStocks(quotes), nil
 	}
 	return nil, nil
 }

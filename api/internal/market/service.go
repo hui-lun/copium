@@ -40,20 +40,30 @@ func NewService(twse *TWSESource, tpex *TPExSource, cache Cache, prices PriceSto
 	return &Service{twse: twse, tpex: tpex, cache: cache, prices: prices, loc: loc}
 }
 
-// RefreshQuotes fetches all TWSE + TPEx quotes and caches them.
+// RefreshQuotes fetches all TWSE + TPEx quotes and caches them. Today's
+// whole-market daily file is preferred because the OpenAPI feeds can lag a
+// day behind; before the close or on holidays the OpenAPI (latest session) is used.
 // A partial failure still caches whatever was fetched.
 func (s *Service) RefreshQuotes(ctx context.Context) error {
 	today := Today(s.loc)
 	var all []Quote
 	var errs []error
-	if q, err := s.twse.DailyQuotes(ctx, today); err != nil {
-		errs = append(errs, fmt.Errorf("twse: %w", err))
-	} else {
-		all = append(all, q...)
+	sources := []struct {
+		name            string
+		daily, fallback func(context.Context, time.Time) ([]Quote, error)
+	}{
+		{"twse", s.twse.DailyQuotesOn, s.twse.DailyQuotes},
+		{"tpex", s.tpex.DailyQuotesOn, s.tpex.DailyQuotes},
 	}
-	if q, err := s.tpex.DailyQuotes(ctx, today); err != nil {
-		errs = append(errs, fmt.Errorf("tpex: %w", err))
-	} else {
+	for _, src := range sources {
+		q, err := src.daily(ctx, today)
+		if err != nil || len(q) == 0 {
+			q, err = src.fallback(ctx, today)
+		}
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", src.name, err))
+			continue
+		}
 		all = append(all, q...)
 	}
 	if len(all) == 0 {

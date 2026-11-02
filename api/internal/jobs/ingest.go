@@ -26,20 +26,42 @@ func NewIngestor(st *store.Store, twse *market.TWSESource, tpex *market.TPExSour
 	return &Ingestor{store: st, twse: twse, tpex: tpex, loc: loc}
 }
 
-// IngestClose stores today's closing prices for all TWSE and TPEx securities.
+// IngestClose stores today's closing prices for all TWSE and TPEx stocks.
+// It reads the same whole-market daily files as the backfill (published the
+// same afternoon); the OpenAPI feeds can lag by a day, so they are only a
+// fallback, and then only rows actually dated today are kept.
 func (in *Ingestor) IngestClose(ctx context.Context) error {
 	today := market.Today(in.loc)
 	var all []market.Quote
 	var errs []error
-	if q, err := in.twse.DailyQuotes(ctx, today); err != nil {
-		errs = append(errs, fmt.Errorf("twse quotes: %w", err))
-	} else {
+	sources := []struct {
+		name     string
+		daily    func(context.Context, time.Time) ([]market.Quote, error)
+		fallback func(context.Context, time.Time) ([]market.Quote, error)
+	}{
+		{"twse", in.twse.DailyQuotesOn, in.twse.DailyQuotes},
+		{"tpex", in.tpex.DailyQuotesOn, in.tpex.DailyQuotes},
+	}
+	for _, src := range sources {
+		q, err := src.daily(ctx, today)
+		if err != nil || len(q) == 0 {
+			if err != nil {
+				log.Printf("ingest close: %s daily file: %v, trying OpenAPI", src.name, err)
+			}
+			q, err = src.fallback(ctx, today)
+			q = onDate(q, today)
+		}
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s quotes: %w", src.name, err))
+			continue
+		}
+		if len(q) == 0 {
+			log.Printf("ingest close: %s has no data for %s yet (holiday or not published)", src.name, today.Format("2006-01-02"))
+		}
 		all = append(all, q...)
 	}
-	if q, err := in.tpex.DailyQuotes(ctx, today); err != nil {
-		errs = append(errs, fmt.Errorf("tpex quotes: %w", err))
-	} else {
-		all = append(all, q...)
+	if len(all) == 0 {
+		return errors.Join(errs...)
 	}
 	for _, w := range checkQuotes(all) {
 		log.Printf("ingest close: WARNING %s", w) // TODO: send an alert notification
@@ -50,6 +72,17 @@ func (in *Ingestor) IngestClose(ctx context.Context) error {
 	}
 	log.Printf("ingest close: stored %d prices", n)
 	return errors.Join(errs...)
+}
+
+// onDate keeps only quotes dated d.
+func onDate(quotes []market.Quote, d time.Time) []market.Quote {
+	out := quotes[:0]
+	for _, q := range quotes {
+		if q.Date.Equal(d) {
+			out = append(out, q)
+		}
+	}
+	return out
 }
 
 // IngestEvening stores valuations, institutional trades and monthly revenue,
