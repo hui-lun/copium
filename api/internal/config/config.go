@@ -45,7 +45,7 @@ func Load() Config {
 		WebRequestInterval:   duration("WEB_REQUEST_INTERVAL", 3*time.Second),
 		FinMindToken:         getenv("FINMIND_TOKEN", ""),
 		GeminiAPIKey:         getenv("GEMINI_API_KEY", ""),
-		GeminiModel:          getenv("GEMINI_MODEL", "gemini-3.8-flash,gemini-flash-latest"),
+		GeminiModel:          getenv("GEMINI_MODEL", "gemini-3.6-flash,gemini-3.5-flash-lite"),
 	}
 }
 
