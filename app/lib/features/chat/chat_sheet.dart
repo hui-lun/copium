@@ -69,11 +69,11 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
     }
   }
 
+  /// Jumps to the newest message; in the reversed list that is offset 0.
   void _scrollToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+        _scroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
       }
     });
   }
@@ -91,12 +91,18 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
           Expanded(
             child: messages.isEmpty
                 ? _welcome()
+                // Reversed so the list starts at the newest message, including
+                // when the sheet is reopened; index 0 is the bottom item.
                 : ListView.builder(
                     controller: _scroll,
+                    reverse: true,
                     padding: const EdgeInsets.all(16),
                     itemCount: messages.length + (_sending ? 1 : 0),
-                    itemBuilder: (context, i) =>
-                        i == messages.length ? const _TypingBubble() : _Bubble(message: messages[i]),
+                    itemBuilder: (context, i) {
+                      if (_sending && i == 0) return const _TypingBubble();
+                      final fromEnd = _sending ? i - 1 : i;
+                      return _Bubble(message: messages[messages.length - 1 - fromEnd]);
+                    },
                   ),
           ),
           _inputBar(),
